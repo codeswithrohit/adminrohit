@@ -1,96 +1,195 @@
 import React, { useState, useEffect } from 'react';
-import { FaFileAlt } from 'react-icons/fa';
 import { firebase } from '../Firebase/config';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import moment from 'moment';
 
 const TransactionRecordPage = () => {
   const [selectedSubject, setSelectedSubject] = useState('');
-  const subjects = ['M1', 'M2', 'M3', 'EM', 'EG', 'DS'];
-  const installmentHeadings = ['1st Installment', '2nd Installment', '3rd Installment'];
+  const [subjects, setSubjects] = useState([]);
+  const [selectedMode, setSelectedMode] = useState('');
   const [registrationData, setRegistrationData] = useState([]);
   const [totalCollectionOnline, setTotalCollectionOnline] = useState(0);
   const [totalCollectionOffline, setTotalCollectionOffline] = useState(0);
   const [remainingBalance, setRemainingBalance] = useState(0);
   const [fromDateTime, setFromDateTime] = useState('');
   const [toDateTime, setToDateTime] = useState('');
+  const [filteredData, setFilteredData] = useState([]);
+  const [isDataVisible, setIsDataVisible] = useState(false);
 
   useEffect(() => {
-    const db = firebase.firestore();
-    const docRef = db.collection('Newregistrations');
+    const fetchSubjects = async () => {
+      try {
+        const db = firebase.firestore();
+        const subjectsSnapshot = await db.collection('subjects').get();
+        const subjects = subjectsSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+        setSubjects(subjects);
+      } catch (error) {
+        console.error('Failed to fetch subjects:', error);
+      }
+    };
 
-    docRef
-      .get()
-      .then((snapshot) => {
-        const allRegistrationData = [];
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          allRegistrationData.push(data);
-        });
-        setRegistrationData(allRegistrationData);
-      })
-      .catch((error) => {
-        console.error('Error getting documents:', error);
-      });
+    fetchSubjects();
   }, []);
 
-  console.log(registrationData)
+  useEffect(() => {
+    const fetchRegistrationData = async () => {
+      try {
+        const db = firebase.firestore();
+        const docRef = db.collection('registrations');
+        const snapshot = await docRef.get();
+        const allRegistrationData = [];
+        snapshot.forEach((doc) => {
+          allRegistrationData.push(doc.data());
+        });
+        setRegistrationData(allRegistrationData);
+      } catch (error) {
+        console.error('Error getting documents:', error);
+      }
+    };
+
+    fetchRegistrationData();
+  }, []);
 
   useEffect(() => {
-    if (selectedSubject) {
-      const filterByDateRange = (data) => {
-        if (!fromDateTime || !toDateTime) return data;
-
-        const fromDate = new Date(fromDateTime);
-        const toDate = new Date(toDateTime);
-
-        return data.filter((student) =>
-          student.subjects.some((subject) =>
-            subject.columns.some((column) => {
-              const paymentDate = new Date(column.date);
-              return paymentDate >= fromDate && paymentDate <= toDate;
-            })
-          )
-        );
-      };
-
-      const filteredData = filterByDateRange(registrationData).filter((data) =>
-        data.subjects.some((subject) => subject.subjectName === selectedSubject)
-      );
-
-      const totalCollectedAmountOnline = filteredData.reduce((total, data) => {
-        const subjectData = data.subjects.find((subject) => subject.subjectName === selectedSubject);
+    const filterData = () => {
+      let data = registrationData;
+  
+      // Log initial registration data
+      console.log('Initial Registration Data:', data);
+  
+      // Filter by selected subject
+      if (selectedSubject) {
+        data = data.map((student) => ({
+          ...student,
+          subjects: student.subjects.filter((subject) => subject.subjectName === selectedSubject),
+        })).filter((student) => student.subjects.length > 0);
+      }
+  
+      // Log data after subject filtering
+      console.log('Data After Subject Filtering:', data);
+  
+      // Filter by selected mode
+      if (selectedMode && selectedMode !== 'All') {
+        data = data.map((student) => ({
+          ...student,
+          subjects: student.subjects.map((subject) => ({
+            ...subject,
+            columns: subject.columns ? subject.columns.filter((column) => column.mode === selectedMode) : [],
+          })).filter((subject) => subject.columns.length > 0),
+        })).filter((student) => student.subjects.length > 0);
+      }
+  
+      // Log data after mode filtering
+      console.log('Data After Mode Filtering:', data);
+  
+      // Filter by date range
+      if (fromDateTime && toDateTime) {
+        const fromDate = moment(fromDateTime).startOf('day').toDate();
+        const toDate = moment(toDateTime).endOf('day').toDate();
+  
+        // Log selected date range
+        console.log('Selected Date Range:', {
+          fromDate: moment(fromDate).format('DD/MM/YYYY HH:mm:ss'),
+          toDate: moment(toDate).format('DD/MM/YYYY HH:mm:ss')
+        });
+  
+        data = data.map((student) => ({
+          ...student,
+          subjects: student.subjects.map((subject) => ({
+            ...subject,
+            columns: subject.columns ? subject.columns.filter((column) => {
+              const columnDate = moment(column.date, 'DD/MM/YYYY HH:mm:ss').toDate();
+  
+              // Log each column date and its comparison result
+              console.log('Column Date:', moment(column.date, 'DD/MM/YYYY HH:mm:ss').format('DD/MM/YYYY HH:mm:ss'));
+              console.log('Is Column Date Within Range:', columnDate >= fromDate && columnDate <= toDate);
+  
+              return columnDate >= fromDate && columnDate <= toDate;
+            }) : [],
+          })).filter((subject) => subject.columns.length > 0),
+        })).filter((student) => student.subjects.length > 0);
+  
+        // Log data after date range filtering
+        console.log('Data After Date Range Filtering:', data);
+      }
+  
+      console.log('Filtered Data:', data); // Log the filtered data to the console
+  
+      return data;
+    };
+  
+    const data = filterData();
+    setFilteredData(data);
+    setIsDataVisible(data.length > 0);
+  
+    const calculateTotalCollection = (data, mode) => {
+      return data.reduce((total, student) => {
+        const subjectData = student.subjects?.find((subject) => subject.subjectName === selectedSubject);
         if (subjectData && subjectData.columns) {
-          const onlinePayments = subjectData.columns.filter((column) => column.mode === 'online');
-          const totalOnline = onlinePayments.reduce((acc, column) => acc + parseFloat(column.amount || 0), 0);
-          return total + totalOnline;
+          const payments = mode === 'All'
+            ? subjectData.columns
+            : subjectData.columns.filter((column) => column.mode === mode);
+          const totalAmount = payments.reduce((acc, column) => acc + parseFloat(column.amount || 0), 0);
+          return total + totalAmount;
         }
         return total;
       }, 0);
-
-      const totalCollectedAmountOffline = filteredData.reduce((total, data) => {
-        const subjectData = data.subjects.find((subject) => subject.subjectName === selectedSubject);
-        if (subjectData && subjectData.columns) {
-          const offlinePayments = subjectData.columns.filter((column) => column.mode === 'offline');
-          const totalOffline = offlinePayments.reduce((acc, column) => acc + parseFloat(column.amount || 0), 0);
-          return total + totalOffline;
-        }
-        return total;
-      }, 0);
-
-      const remainingBalance = totalCollectedAmountOnline + totalCollectedAmountOffline;
-      setTotalCollectionOnline(totalCollectedAmountOnline);
-      setTotalCollectionOffline(totalCollectedAmountOffline);
-      setRemainingBalance(remainingBalance);
+    };
+  
+    let totalOnline = 0;
+    let totalOffline = 0;
+  
+    if (selectedMode === 'All' || selectedMode === '') {
+      totalOnline = calculateTotalCollection(data, 'Online');
+      totalOffline = calculateTotalCollection(data, 'Cash');
+    } else {
+      totalOnline = calculateTotalCollection(data, 'Online');
+      totalOffline = calculateTotalCollection(data, 'Cash');
     }
-  }, [selectedSubject, registrationData, fromDateTime, toDateTime]);
+  
+    const totalBalance = totalOnline + totalOffline;
+  
+    setTotalCollectionOnline(totalOnline);
+    setTotalCollectionOffline(totalOffline);
+    setRemainingBalance(totalBalance);
+  }, [selectedSubject, selectedMode, registrationData, fromDateTime, toDateTime]);
+  
+
+  const downloadPDF = () => {
+    const input = document.getElementById('pdfTable2');
+    html2canvas(input).then((canvas) => {
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 210; // A4 width in mm
+      const imgHeight = canvas.height * imgWidth / canvas.width; // Calculate height to maintain aspect ratio
+  
+      // Check if the content height fits within one page
+      const pageHeight = 295; // A4 height in mm
+      if (imgHeight <= pageHeight) {
+        // Add the image to a single page
+        pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+      } else {
+        // Scale down the image to fit within one page
+        const scale = pageHeight / imgHeight;
+        const newImgWidth = imgWidth * scale;
+        const newImgHeight = imgHeight * scale;
+  
+        // Add the scaled image to the page
+        pdf.addImage(imgData, 'PNG', 0, 0, newImgWidth, newImgHeight);
+      }
+  
+      const now = moment().format('DD/MM/YYYY HH:mm:ss');
+      const fileName = `transaction-record-${now}.pdf`;
+  
+      pdf.save(fileName);
+    });
+  };
+  
 
   return (
     <div className="flex min-h-screen bg-white dark:bg-white">
-      <div className="p-8 overflow-x-auto">
-        <div className="flex items-center mb-4">
-          <FaFileAlt className="mr-2 text-2xl" />
-          <h1 className="text-2xl font-bold">Transaction Record</h1>
-        </div>
-
+      <div id="pdfTable2" className="p-8 overflow-x-auto">
         <div className="mb-4">
           <label className="block mb-2" htmlFor="subjectSelect">
             Select Subject:
@@ -102,108 +201,124 @@ const TransactionRecordPage = () => {
             value={selectedSubject}
           >
             <option value="">Select a Subject</option>
-            {subjects.map((subject, index) => (
-              <option key={index} value={subject}>
-                {subject}
+            {subjects.map(sub => (
+              <option key={sub.id} value={sub.name}>
+                {sub.name}
               </option>
             ))}
           </select>
         </div>
 
+        <div className="mb-4">
+          <label className="block mb-2" htmlFor="modeSelect">
+            Select Mode:
+          </label>
+          <select
+            id="modeSelect"
+            className="border border-gray-300 rounded px-4 py-2"
+            onChange={(e) => setSelectedMode(e.target.value)}
+            value={selectedMode}
+          >
+            <option value="">Select a Mode</option>
+            <option value="All">All</option>
+            <option value="Online">Online</option>
+            <option value="Cash">Cash</option>
+          </select>
+        </div>
+
+        <div className="mb-4">
+          <label className="block mb-2">From Date & Time:</label>
+          <input
+            type="datetime-local"
+            className="border border-gray-300 rounded px-4 py-2"
+            onChange={(e) => {
+              setFromDateTime(e.target.value);
+              console.log('From Date & Time Selected:', moment(e.target.value).format('DD/MM/YYYY HH:mm:ss')); // Log the selected from date
+            }}
+            value={fromDateTime}
+          />
+        </div>
+
+        <div className="mb-4">
+          <label className="block mb-2">To Date & Time:</label>
+          <input
+            type="datetime-local"
+            className="border border-gray-300 rounded px-4 py-2"
+            onChange={(e) => {
+              setToDateTime(e.target.value);
+              console.log('To Date & Time Selected:', moment(e.target.value).format('DD/MM/YYYY HH:mm:ss')); // Log the selected to date
+            }}
+            value={toDateTime}
+          />
+        </div>
+
         <div className="flex mb-4">
-        <div className="flex-1">
+          <div className="flex-1">
             <h2 className="font-semibold mb-2 mr-4">Total Collection Cash:</h2>
-            <p className="border border-gray-300 rounded p-2">{totalCollectionOffline} </p>
+            <p className="border border-gray-300 rounded p-2">{totalCollectionOffline}</p>
           </div>
-          <div className="flex-1 ml-4 ">
+          <div className="flex-1 ml-4">
             <h2 className="font-semibold mb-2">Total Collection Online:</h2>
-            <p className="border border-gray-300 rounded p-2">{totalCollectionOnline} </p>
-          </div>
-         
-        </div>
-
-        <div className="flex mb-4">
-          <div className="flex-1">
-            <label className="font-semibold mb-2 mr-4" htmlFor="fromDateTime">
-              From Date & Time:
-            </label>
-            <input
-              id="fromDateTime"
-              type="datetime-local"
-              className="border border-gray-300 rounded px-4 py-2"
-              value={fromDateTime}
-              onChange={(e) => setFromDateTime(e.target.value)}
-            />
-          </div>
-          <div className="flex-1">
-            <label className="font-semibold mb-2 ml-4" htmlFor="toDateTime">
-              To Date & Time:
-            </label>
-            <input
-              id="toDateTime"
-              type="datetime-local"
-              className="border border-gray-300 rounded px-4 py-2"
-              value={toDateTime}
-              onChange={(e) => setToDateTime(e.target.value)}
-            />
+            <p className="border border-gray-300 rounded p-2">{totalCollectionOnline}</p>
           </div>
         </div>
 
+        <div className="mb-4">
+          {isDataVisible && (
+            <div>
+            
 
-        <table className="w-full border-collapse border border-gray-300 mb-4">
-        <thead>
-  <tr className="bg-gray-200">
-  <th className="border text-sm border-gray-300 px-4 py-2">Date & Time</th>
-    <th className="border text-sm border-gray-300 px-4 py-2">Student Name</th>
-    <th className="border text-sm border-gray-300 px-4 py-2">Contact Details</th>
-  
-    <th className="border text-sm border-gray-300 px-4 py-2">Subject</th>
-    <th className="border text-sm border-gray-300 px-4 py-2">Amount</th>
-    <th className="border text-sm border-gray-300 px-4 py-2">Mode Of Payment</th>
-    <th className="border text-sm border-gray-300 px-4 py-2">Received By</th>
-  </tr>
-</thead>
-          <tbody>
-  {registrationData.map((student, index) => {
-    const subjectsData = student.subjects.find((subject) => subject.subjectName === selectedSubject);
-    if (subjectsData) {
-      const columnsData = subjectsData.columns || [];
+              <div  className="mt-4">
+              <div className="overflow-x-auto">
+  <table className="min-w-full border border-gray-300">
+    <thead>
+      <tr>
+        <th className="border border-gray-300 px-1 text-[10px] py-1 ">Date and Time</th>
+        <th className="border border-gray-300 px-1 text-[10px] py-1 ">Student Name</th>
+        <th className="border border-gray-300 px-1 text-[10px] py-1 ">Subject</th>
+        <th className="border border-gray-300 px-1 text-[10px] py-1 ">Mode of Payment</th>
+        <th className="border border-gray-300 px-1 text-[10px] py-1 ">Amount</th>
+        <th className="border border-gray-300 px-1 text-[10px] py-1 ">Received By</th>
+      </tr>
+    </thead>
+    <tbody>
+      {filteredData.map((student, index) => (
+        student.subjects.map((subject) => (
+          subject.columns.map((column, colIndex) => (
+            <tr key={`${index}-${colIndex}`}>
+              <td className="border border-gray-300 px-1 py-1 text-[12px] font-semibold font-mono">{column.date}</td>
+              <td className="border border-gray-300 px-1 py-1 text-[12px] font-semibold font-mono">{student.firstName} {student.middleName} {student.lastName}</td>
+              <td className="border border-gray-300 px-1 py-1 text-[12px] font-semibold font-mono">{subject.subjectName}</td>
+              <td className="border border-gray-300 px-1 py-1 text-[12px] font-semibold font-mono">{column.mode}</td>
+              <td className="border border-gray-300 px-1 py-1 text-[12px] font-semibold font-mono">{column.amount}</td>
+              <td className="border border-gray-300 px-1 py-1 text-[12px] font-semibold font-mono">{column.received}</td>
+            </tr>
+          ))
+        ))
+      ))}
+    </tbody>
+  </table>
+</div>
 
-      return columnsData.map((column, i) => (
-        <tr key={i} className="bg-gray-100">
-           <td className="border border-gray-300 px-4 py-2">
-            {column.date} {/* Date and Time of Payment */}
-          </td>
-          <td className="border border-gray-300 px-4 py-2">
-            {`${student.firstName} ${student.lastName}`}
-          </td>
-          <td className="border border-gray-300 px-4 py-2">
-            {student.callingNumber}
-          </td>
-         
-          <td className="border border-gray-300 px-4 py-2">
-            {selectedSubject} {/* Subject */}
-          </td>
-          <td className="border border-gray-300 px-4 py-2">
-            {`${column.amount} `} {/* Amount */}
-          </td>
-          <td className="border border-gray-300 px-4 py-2">
-            {column.mode} {/* Mode */}
-          </td>
-          <td className="border border-gray-300 px-4 py-2">
-            {column.received} {/* Received By */}
-          </td>
-        </tr>
-      ));
-    }
-    return null;
-  })}
-</tbody>
-        </table>
+              </div>
+              <div className="flex-1 mt-2">
+            <h2 className="font-semibold mb-2 mr-4">Total Collection:</h2>
+            <p className="border border-gray-300 rounded p-2">{remainingBalance}</p>
+          </div>
+              <button
+                onClick={downloadPDF}
+                className="bg-blue-500 mt-8 text-white px-4 py-2 rounded"
+              >
+                Download PDF
+              </button>
+
+              
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 };
 
 export default TransactionRecordPage;
-
