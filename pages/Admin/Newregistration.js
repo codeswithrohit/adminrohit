@@ -112,7 +112,7 @@ const Newregistration = () => {
 
         // Generate QR code URL
         const id = new Date().getTime(); // Example ID, replace with your unique ID logic
-        const qrCodeUrl = `http://localhost:3000/studentdetails?id=${id}`;
+        const qrCodeUrl = `http://myqridcard.in/studentdetails?id=${id}`;
         let qrCodeImage = '';
 
         try {
