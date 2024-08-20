@@ -1,5 +1,5 @@
 import React, { useState,useEffect } from 'react';
-import { firebase } from '../Firebase/config'; // Ensure this imports Firebase Auth and Firestore instances
+import { firebase } from '../../Firebase/config'; // Ensure this imports Firebase Auth and Firestore instances
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
