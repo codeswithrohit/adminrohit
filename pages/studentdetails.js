@@ -5,7 +5,7 @@ import { FaAngleDown, FaAngleUp, FaUserEdit, FaQrcode, FaFileAlt, FaCog, FaPlus,
 import { MdOutlinePayments } from 'react-icons/md';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-
+import html2canvas from 'html2canvas';
 const db = firebase.firestore();
 
 const IconWithLabel = ({ icon, label, onClick }) => {
@@ -17,69 +17,70 @@ const IconWithLabel = ({ icon, label, onClick }) => {
   );
 };
 
-const Adminregistrattionfooter = ({ onEdit,handleQRCode, handleNewPayment }) => {
-  return (
-    <div className="fixed bottom-20 left-0 right-0 bg-white dark:bg-white p-4 flex justify-around">
-      <IconWithLabel icon={<FaUserEdit size={24} style={{ color: 'blue' }} />} label="Edit" onClick={onEdit} />
-      <IconWithLabel icon={<FaQrcode size={24} style={{ color: 'blue' }} />} label=" QR Code" onClick={handleQRCode} />
-      <IconWithLabel icon={<MdOutlinePayments size={24} style={{ color: 'blue' }} />} label="New Payment" onClick={handleNewPayment} />
-    </div>
-  );
-};
-
-
-const QRCodeModal = ({ isOpen, onClose, qrCodeUrl, student }) => {
-  const handleDownload = () => {
-    if (!student) {
-      console.error('Student data is not available.');
-      return;
-    }
-
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const img = new Image();
-
-    img.src = qrCodeUrl;
-
-    img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.drawImage(img, 0, 0);
-
-      // Convert the canvas to a data URL and trigger the download
-      const link = document.createElement('a');
-      const fileName = `${student.firstName}_${student.callingNumber}.png`; // Filename with firstName and callingNumber
-      link.href = canvas.toDataURL('image/png');
-      link.download = fileName;
-      link.click();
-    };
-  };
-
-  return isOpen ? (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-lg w-full ">
-        <h2 className="text-lg font-bold mb-4">QR Code</h2>
-        <div className="flex justify-center mb-4">
-          <img src={qrCodeUrl} alt="QR Code" className="w-48 h-48 object-cover" />
-        </div>
-        <button
-          onClick={handleDownload}
-          className="bg-blue-500 text-white px-4 py-2 rounded-lg mr-2"
-        >
-          Download QR Code
-        </button>
-        <button
-          onClick={onClose}
-          className="bg-gray-500 text-white px-4 py-2 rounded-lg"
-        >
-          Close
-        </button>
+const Adminregistrattionfooter = ({ onEdit, handleQRCode, handleNewPayment, adminAuthentication, userAuthentication }) => {
+    return (
+      <div className="fixed bottom-20 left-0 right-0 bg-white dark:bg-white p-4 flex justify-around">
+        {adminAuthentication && (
+          <>
+            <IconWithLabel icon={<FaUserEdit size={24} style={{ color: 'blue' }} />} label="Edit" onClick={onEdit} />
+            <IconWithLabel icon={<FaQrcode size={24} style={{ color: 'blue' }} />} label="QR Code" onClick={handleQRCode} />
+          </>
+        )}
+        {(adminAuthentication || userAuthentication) && (
+          <IconWithLabel icon={<MdOutlinePayments size={24} style={{ color: 'blue' }} />} label="New Payment" onClick={handleNewPayment} />
+        )}
       </div>
-    </div>
-  ) : null;
-};
+    );
+  };
+  
 
-const StudentDetails = () => {
+
+  const QRCodeModal = ({ isOpen, onClose, qrCodeUrl, student }) => {
+    const handleDownload = () => {
+      const qrCodeElement = document.getElementById('qrCodeImage');
+    
+      if (qrCodeElement) {
+        html2canvas(qrCodeElement, { useCORS: true }).then((canvas) => {
+          const link = document.createElement('a');
+          const fileName = `${student?.firstName || 'unknown'}_${student?.id || 'no-id'}.png`;
+          link.href = canvas.toDataURL('image/png');
+          link.download = fileName;
+          link.click();
+        }).catch((error) => {
+          console.error('Error capturing QR code:', error);
+        });
+      } else {
+        console.log('QR code element not found');
+      }
+    };
+  
+    return isOpen ? (
+      <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
+        <div className="bg-white p-6 rounded-lg shadow-lg w-full">
+          <h2 className="text-lg font-bold mb-4">QR Code</h2>
+          <div className="flex justify-center mb-4">
+            {/* Add an ID to the image for html2canvas to target */}
+            <img id="qrCodeImage" src={qrCodeUrl} alt="QR Code" className="w-48 h-48 object-cover" />
+          </div>
+          <button
+            onClick={handleDownload}
+            className="bg-blue-500 text-white px-4 py-2 rounded-lg mr-2"
+          >
+            Download QR Code
+          </button>
+          <button
+            onClick={onClose}
+            className="bg-gray-500 text-white px-4 py-2 rounded-lg"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    ) : null;
+  };
+  
+
+const StudentDetails = ({adminAuthentication,userAuthentication}) => {
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editPopupVisible, setEditPopupVisible] = useState(false);
@@ -535,8 +536,15 @@ const StudentDetails = () => {
           </div>
         </div>
       )}
-              <QRCodeModal isOpen={isQRCodeModalOpen} onClose={() => setIsQRCodeModalOpen(false)} qrCodeUrl={qrCodeUrl} />
-      <Adminregistrattionfooter onEdit={handleEditClick} handleNewPayment={handleNewPayment} handleQRCode={handleQRCode} />
+              <QRCodeModal isOpen={isQRCodeModalOpen} onClose={() => setIsQRCodeModalOpen(false)} student={student} qrCodeUrl={qrCodeUrl} />
+              <Adminregistrattionfooter
+  onEdit={handleEditClick}
+  handleQRCode={handleQRCode}
+  handleNewPayment={handleNewPayment}
+  adminAuthentication={adminAuthentication}
+  userAuthentication={userAuthentication}
+/>
+
       <ToastContainer />
     </div>
   );

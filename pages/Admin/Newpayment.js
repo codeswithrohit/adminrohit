@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { firebase } from '../Firebase/config';
+import { firebase } from '../../Firebase/config';
 import { useRouter } from 'next/router';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -12,7 +12,7 @@ const Newpayment = ({ userdata }) => {
   const [subjectColumns, setSubjectColumns] = useState([]);
   const [registrationData, setRegistrationData] = useState(null);
   const [showPopup, setShowPopup] = useState(false);
-  const [submittedData, setSubmittedData] = useState([]); // Store the submitted data
+  const [submittedData, setSubmittedData] = useState(null);
 
   useEffect(() => {
     const id = router.query.id;
@@ -106,21 +106,14 @@ const Newpayment = ({ userdata }) => {
             return { columns: [{ date: '', amount: '', mode: '', received: '' }] };
           });
           setSubjectColumns(initialColumns);
-
-          // Prepare data for popup
-          const submitted = updatedRegistrationData.subjects.flatMap((subject, subjectIndex) => {
-            return subjectColumns[subjectIndex]?.columns.map((column) => ({
-              subjectName: subject.subjectName,
-              amount: column.amount,
-              mode: column.mode,
-              dateTime: column.date,
-              receivedBy: column.received,
-            }));
-          });
-
-          setSubmittedData(submitted);
           toast.success('Data saved successfully!');
           
+          // Set only the latest submitted data for the popup
+          const latestData = registrationData.subjects.map((subject, index) => ({
+            ...subject,
+            columns: subject.columns.slice(-subjectColumns[index].columns.length),
+          }));
+          setSubmittedData({ subjects: latestData });
           setShowPopup(true); // Show the popup with data
         })
         .catch((error) => {
@@ -214,39 +207,49 @@ const Newpayment = ({ userdata }) => {
           </button>
         </div>
 
-        {/* Modal Popup */}
         {showPopup && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-            <div className="bg-white p-8 rounded shadow-lg max-w-md w-full">
-              <h1 className='font-mono font-bold' >Student Name:{registrationData?.firstName} {registrationData?.middleName} {registrationData?.lastName}</h1>
-              <h1 className='font-mono font-bold mb-2' >Date & Time:{submittedData[0]?.dateTime}</h1>
-              <table className="w-full border-collapse border border-gray-300">
-                <thead>
-                  <tr className="bg-gray-200">
-                    <th className="border text-sm border-gray-300 px-4 py-2">Subject Name</th>
-                    <th className="border text-sm border-gray-300 px-4 py-2">Pay In</th>
-                    <th className="border text-sm border-gray-300 px-4 py-2">Mode of Payment</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {submittedData.map((data, index) => (
-                    <tr key={index}>
-                      <td className="border border-gray-300 text-black px-4 py-2 font-mono">{data.subjectName}</td>
-                      <td className="border border-gray-300 text-black px-4 py-2 font-mono">{data.amount}</td>
-                      <td className="border border-gray-300 text-black px-4 py-2 font-mono">{data.mode}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <h1 className='font-mono font-bold mb-2 text-black mt-2' >Recieved By:{submittedData[0]?.receivedBy}</h1>
-              <div className="flex justify-center mt-4">
-                <button
-                  className="bg-red-500 text-white font-bold py-2 px-4 rounded hover:bg-blue-700"
-                  onClick={() => setShowPopup(false)}
-                >
-                  Close
-                </button>
-              </div>
+          <div className="fixed inset-0 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded shadow-lg w-full max-w-lg">
+              <h2 className="text-lg font-bold mb-2">Submitted Fees Data</h2>
+              <p>Student Name: {registrationData?.firstName} {registrationData?.middleName} {registrationData?.lastName}</p>
+              {submittedData?.subjects?.map((subject, index) => (
+                <div key={index} className="mb-4">
+                  <table className="w-full border-collapse border border-gray-300">
+                    <thead>
+                      <tr className="bg-gray-200">
+                        <th className="border text-sm border-gray-300 px-4 py-2">Subject Name</th>
+                        <th className="border text-sm border-gray-300 px-4 py-2">Pay In</th>
+                        <th className="border text-sm border-gray-300 px-4 py-2">Mode of Payment</th>
+                        <th className="border text-sm border-gray-300 px-4 py-2">Date & Time</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {subject.columns.map((column, colIndex) => (
+                        <tr key={colIndex}>
+                          <td className="border border-gray-300 px-4 py-2">
+                            <p>{subject.subjectName}</p>
+                          </td>
+                          <td className="border border-gray-300 px-4 py-2">
+                            <p>{column.amount}</p>
+                          </td>
+                          <td className="border border-gray-300 px-4 py-2">
+                            <p>{column.mode}</p>
+                          </td>
+                          <td className="border border-gray-300 px-4 py-2">
+                            <p>{column.date}</p>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+              <button
+                className="bg-blue-500 text-white font-bold py-2 px-4 rounded hover:bg-blue-700"
+                onClick={() => setShowPopup(false)}
+              >
+                Close
+              </button>
             </div>
           </div>
         )}

@@ -32,13 +32,24 @@ const Test = () => {
 
   const copyToClipboard = () => {
     if (fingerprint) {
-      navigator.clipboard.writeText(fingerprint)
-        .then(() => {
-          toast.success('Fingerprint copied to clipboard!'); // Show success notification
-        })
-        .catch(() => {
-          toast.error('Failed to copy fingerprint'); // Show error notification
-        });
+      try {
+        // Create a temporary textarea element
+        const textarea = document.createElement('textarea');
+        textarea.value = fingerprint;
+        document.body.appendChild(textarea);
+
+        // Select the text in the textarea
+        textarea.select();
+        document.execCommand('copy');
+
+        // Remove the textarea element
+        document.body.removeChild(textarea);
+
+        // Show success notification
+        toast.success('Fingerprint copied to clipboard!');
+      } catch (error) {
+        toast.error('Failed to copy fingerprint'); // Show error notification
+      }
     } else {
       toast.warning('No fingerprint to copy'); // Show warning notification
     }

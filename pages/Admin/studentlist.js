@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { firebase } from '../Firebase/config';
+import { firebase } from '../../Firebase/config';
 import { FaSearch, FaUserPlus } from 'react-icons/fa';
 import { FaDownload, FaEye } from 'react-icons/fa';
 import Link from 'next/link';
@@ -169,7 +169,7 @@ function Studentlist() {
         </div>
 
       <div className="fixed bottom-20 right-4">
-        <Link href="/Newregistration">
+        <Link href="/Admin/Newregistration">
           <FaUserPlus size={48} className="text-blue-500 cursor-pointer" />
         </Link>
       </div>

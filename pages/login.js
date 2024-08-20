@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
-import { firebase } from '../Firebase/config'; // Ensure this imports Firebase Auth correctly
-import { useRouter } from 'next/router'; // Use Next.js router
+import { firebase } from '../Firebase/config';
+import { useRouter } from 'next/router';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 
-// Extract Firebase Auth from the config
 const auth = firebase.auth();
 const firestore = firebase.firestore();
 
@@ -37,23 +36,34 @@ const Login = () => {
       const userCredential = await auth.signInWithEmailAndPassword(email, password);
       const user = userCredential.user;
 
-      // Check if the fingerprint matches
+      let userAuth = false;
+      let adminAuth = false;
+
+      // Check if the user is an admin
+      const adminDoc = await firestore.collection('admin').doc(user.uid).get();
+      if (adminDoc.exists && adminDoc.data().fingerprint === fingerprint) {
+        adminAuth = true;
+        toast.success('Admin login successful!');
+        router.push('/Admin'); // Redirect to admin dashboard
+      }
+
+      // Check if the user is a regular user
       const userDoc = await firestore.collection('users').doc(user.uid).get();
-      if (userDoc.exists) {
-        const userData = userDoc.data();
-        if (userData.fingerprint === fingerprint) {
-          // Store fingerprint and email in localStorage
-          localStorage.setItem('email', email);
-          localStorage.setItem('fingerprint', fingerprint);
-          
-          // Redirect to homepage or dashboard
-          router.push('/');
-          toast.success('Login successful!');
-        } else {
-            router.push('https://www.youtube.com/watch?v=mjJzaiGkaQA');
-        }
-      } else {
-        toast.error('User not found.');
+      if (userDoc.exists && userDoc.data().fingerprint === fingerprint) {
+        userAuth = true;
+        toast.success('User login successful!');
+        router.push('/User'); // Redirect to user dashboard
+      }
+
+      // Store authData in localStorage
+      localStorage.setItem('authData', JSON.stringify({ userAuth, adminAuth }));
+      localStorage.setItem('email', email);
+      localStorage.setItem('fingerprint', fingerprint);
+
+      if (!userAuth && !adminAuth) {
+        // If no matching fingerprint, redirect to an error page or show an error
+        toast.error('Fingerprint mismatch or user not found.');
+        router.push('https://www.youtube.com/watch?v=mjJzaiGkaQA'); // Redirect to a specific page
       }
     } catch (error) {
       console.error('Error logging in:', error);

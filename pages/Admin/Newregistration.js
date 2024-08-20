@@ -4,7 +4,7 @@ import Modal from 'react-modal';
 import { FaUserEdit, FaQrcode, FaFileAlt, FaCog, FaUser } from 'react-icons/fa';
 import { MdOutlinePayments } from 'react-icons/md';
 import Link from 'next/link';
-import { firebase } from '../Firebase/config';
+import { firebase } from '../../Firebase/config';
 import { useRouter } from 'next/router';
 import QRCode from 'qrcode';
 import FileSaver from 'file-saver';
@@ -112,7 +112,7 @@ const Newregistration = () => {
 
         // Generate QR code URL
         const id = new Date().getTime(); // Example ID, replace with your unique ID logic
-        const qrCodeUrl = `http://myqridcard.in/studentdetails?id=${id}`;
+        const qrCodeUrl = `http://localhost:3000/studentdetails?id=${id}`;
         let qrCodeImage = '';
 
         try {

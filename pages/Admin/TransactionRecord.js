@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { firebase } from '../Firebase/config';
+import { firebase } from '../../Firebase/config';
 import { useRouter } from 'next/router';
-import TransactionRecords from '../components/TransactionRecord';
+import TransactionRecords from '../../components/TransactionRecord';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 const TransactionRecord = () => {

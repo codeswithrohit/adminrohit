@@ -54,10 +54,10 @@ const TransactionRecordPage = () => {
   useEffect(() => {
     const filterData = () => {
       let data = registrationData;
-  
+
       // Log initial registration data
       console.log('Initial Registration Data:', data);
-  
+
       // Filter by selected subject
       if (selectedSubject) {
         data = data.map((student) => ({
@@ -65,10 +65,10 @@ const TransactionRecordPage = () => {
           subjects: student.subjects.filter((subject) => subject.subjectName === selectedSubject),
         })).filter((student) => student.subjects.length > 0);
       }
-  
+
       // Log data after subject filtering
       console.log('Data After Subject Filtering:', data);
-  
+
       // Filter by selected mode
       if (selectedMode && selectedMode !== 'All') {
         data = data.map((student) => ({
@@ -79,50 +79,50 @@ const TransactionRecordPage = () => {
           })).filter((subject) => subject.columns.length > 0),
         })).filter((student) => student.subjects.length > 0);
       }
-  
+
       // Log data after mode filtering
       console.log('Data After Mode Filtering:', data);
-  
+
       // Filter by date range
       if (fromDateTime && toDateTime) {
-        const fromDate = moment(fromDateTime).startOf('day').toDate();
-        const toDate = moment(toDateTime).endOf('day').toDate();
-  
+        const fromDate = moment(fromDateTime, 'YYYY-MM-DDTHH:mm').toDate();
+        const toDate = moment(toDateTime, 'YYYY-MM-DDTHH:mm').toDate();
+
         // Log selected date range
         console.log('Selected Date Range:', {
           fromDate: moment(fromDate).format('DD/MM/YYYY HH:mm:ss'),
           toDate: moment(toDate).format('DD/MM/YYYY HH:mm:ss')
         });
-  
+
         data = data.map((student) => ({
           ...student,
           subjects: student.subjects.map((subject) => ({
             ...subject,
             columns: subject.columns ? subject.columns.filter((column) => {
               const columnDate = moment(column.date, 'DD/MM/YYYY HH:mm:ss').toDate();
-  
+
               // Log each column date and its comparison result
               console.log('Column Date:', moment(column.date, 'DD/MM/YYYY HH:mm:ss').format('DD/MM/YYYY HH:mm:ss'));
               console.log('Is Column Date Within Range:', columnDate >= fromDate && columnDate <= toDate);
-  
+
               return columnDate >= fromDate && columnDate <= toDate;
             }) : [],
           })).filter((subject) => subject.columns.length > 0),
         })).filter((student) => student.subjects.length > 0);
-  
+
         // Log data after date range filtering
         console.log('Data After Date Range Filtering:', data);
       }
-  
+
       console.log('Filtered Data:', data); // Log the filtered data to the console
-  
+
       return data;
     };
-  
+
     const data = filterData();
     setFilteredData(data);
     setIsDataVisible(data.length > 0);
-  
+
     const calculateTotalCollection = (data, mode) => {
       return data.reduce((total, student) => {
         const subjectData = student.subjects?.find((subject) => subject.subjectName === selectedSubject);
@@ -136,10 +136,10 @@ const TransactionRecordPage = () => {
         return total;
       }, 0);
     };
-  
+
     let totalOnline = 0;
     let totalOffline = 0;
-  
+
     if (selectedMode === 'All' || selectedMode === '') {
       totalOnline = calculateTotalCollection(data, 'Online');
       totalOffline = calculateTotalCollection(data, 'Cash');
@@ -147,14 +147,14 @@ const TransactionRecordPage = () => {
       totalOnline = calculateTotalCollection(data, 'Online');
       totalOffline = calculateTotalCollection(data, 'Cash');
     }
-  
+
     const totalBalance = totalOnline + totalOffline;
-  
+
     setTotalCollectionOnline(totalOnline);
     setTotalCollectionOffline(totalOffline);
     setRemainingBalance(totalBalance);
   }, [selectedSubject, selectedMode, registrationData, fromDateTime, toDateTime]);
-  
+
 
   const downloadPDF = () => {
     const input = document.getElementById('pdfTable2');
@@ -163,7 +163,7 @@ const TransactionRecordPage = () => {
       const pdf = new jsPDF('p', 'mm', 'a4');
       const imgWidth = 210; // A4 width in mm
       const imgHeight = canvas.height * imgWidth / canvas.width; // Calculate height to maintain aspect ratio
-  
+
       // Check if the content height fits within one page
       const pageHeight = 295; // A4 height in mm
       if (imgHeight <= pageHeight) {
@@ -174,22 +174,21 @@ const TransactionRecordPage = () => {
         const scale = pageHeight / imgHeight;
         const newImgWidth = imgWidth * scale;
         const newImgHeight = imgHeight * scale;
-  
+
         // Add the scaled image to the page
         pdf.addImage(imgData, 'PNG', 0, 0, newImgWidth, newImgHeight);
       }
-  
+
       const now = moment().format('DD/MM/YYYY HH:mm:ss');
       const fileName = `transaction-record-${now}.pdf`;
-  
+
       pdf.save(fileName);
     });
   };
-  
 
   return (
     <div className="flex min-h-screen bg-white dark:bg-white">
-      <div id="pdfTable2" className="p-8 overflow-x-auto">
+      <div  className="p-8 overflow-x-auto">
         <div className="mb-4">
           <label className="block mb-2" htmlFor="subjectSelect">
             Select Subject:
@@ -233,7 +232,7 @@ const TransactionRecordPage = () => {
             className="border border-gray-300 rounded px-4 py-2"
             onChange={(e) => {
               setFromDateTime(e.target.value);
-              console.log('From Date & Time Selected:', moment(e.target.value).format('DD/MM/YYYY HH:mm:ss')); // Log the selected from date
+              console.log('From Date & Time Selected:', e.target.value);
             }}
             value={fromDateTime}
           />
@@ -246,13 +245,19 @@ const TransactionRecordPage = () => {
             className="border border-gray-300 rounded px-4 py-2"
             onChange={(e) => {
               setToDateTime(e.target.value);
-              console.log('To Date & Time Selected:', moment(e.target.value).format('DD/MM/YYYY HH:mm:ss')); // Log the selected to date
+              console.log('To Date & Time Selected:', e.target.value);
             }}
             value={toDateTime}
           />
         </div>
 
-        <div className="flex mb-4">
+        {isDataVisible && (
+          <>
+             <div>
+
+              <div id="pdfTable2" >
+            <h1 className='font-bold font-mono text-sm text-black' >Account Statement From {fromDateTime} to {toDateTime} </h1>
+            <div className="flex mb-4">
           <div className="flex-1">
             <h2 className="font-semibold mb-2 mr-4">Total Collection Cash:</h2>
             <p className="border border-gray-300 rounded p-2">{totalCollectionOffline}</p>
@@ -262,60 +267,56 @@ const TransactionRecordPage = () => {
             <p className="border border-gray-300 rounded p-2">{totalCollectionOnline}</p>
           </div>
         </div>
-
-        <div className="mb-4">
-          {isDataVisible && (
-            <div>
-            
-
-              <div  className="mt-4">
-              <div className="overflow-x-auto">
-  <table className="min-w-full border border-gray-300">
-    <thead>
-      <tr>
-        <th className="border border-gray-300 px-1 text-[10px] py-1 ">Date and Time</th>
-        <th className="border border-gray-300 px-1 text-[10px] py-1 ">Student Name</th>
-        <th className="border border-gray-300 px-1 text-[10px] py-1 ">Subject</th>
-        <th className="border border-gray-300 px-1 text-[10px] py-1 ">Mode of Payment</th>
-        <th className="border border-gray-300 px-1 text-[10px] py-1 ">Amount</th>
-        <th className="border border-gray-300 px-1 text-[10px] py-1 ">Received By</th>
-      </tr>
-    </thead>
-    <tbody>
-      {filteredData.map((student, index) => (
-        student.subjects.map((subject) => (
-          subject.columns.map((column, colIndex) => (
-            <tr key={`${index}-${colIndex}`}>
-              <td className="border border-gray-300 px-1 py-1 text-[12px] font-semibold font-mono">{column.date}</td>
-              <td className="border border-gray-300 px-1 py-1 text-[12px] font-semibold font-mono">{student.firstName} {student.middleName} {student.lastName}</td>
-              <td className="border border-gray-300 px-1 py-1 text-[12px] font-semibold font-mono">{subject.subjectName}</td>
-              <td className="border border-gray-300 px-1 py-1 text-[12px] font-semibold font-mono">{column.mode}</td>
-              <td className="border border-gray-300 px-1 py-1 text-[12px] font-semibold font-mono">{column.amount}</td>
-              <td className="border border-gray-300 px-1 py-1 text-[12px] font-semibold font-mono">{column.received}</td>
-            </tr>
-          ))
+            <div  className="mt-4">
+            <div className="overflow-x-auto">
+<table className="min-w-full border border-gray-300">
+  <thead>
+    <tr>
+      <th className="border border-gray-300 px-1 text-[10px] py-1 ">Date and Time</th>
+      <th className="border border-gray-300 px-1 text-[10px] py-1 ">Student Name</th>
+      <th className="border border-gray-300 px-1 text-[10px] py-1 ">Subject</th>
+      <th className="border border-gray-300 px-1 text-[10px] py-1 ">Mode of Payment</th>
+      <th className="border border-gray-300 px-1 text-[10px] py-1 ">Amount</th>
+      <th className="border border-gray-300 px-1 text-[10px] py-1 ">Received By</th>
+    </tr>
+  </thead>
+  <tbody>
+    {filteredData.map((student, index) => (
+      student.subjects.map((subject) => (
+        subject.columns.map((column, colIndex) => (
+          <tr key={`${index}-${colIndex}`}>
+            <td className="border border-gray-300 px-1 py-1 text-[12px] font-semibold font-mono">{column.date}</td>
+            <td className="border border-gray-300 px-1 py-1 text-[12px] font-semibold font-mono">{student.firstName} {student.middleName} {student.lastName}</td>
+            <td className="border border-gray-300 px-1 py-1 text-[12px] font-semibold font-mono">{subject.subjectName}</td>
+            <td className="border border-gray-300 px-1 py-1 text-[12px] font-semibold font-mono">{column.mode}</td>
+            <td className="border border-gray-300 px-1 py-1 text-[12px] font-semibold font-mono">{column.amount}</td>
+            <td className="border border-gray-300 px-1 py-1 text-[12px] font-semibold font-mono">{column.received}</td>
+          </tr>
         ))
-      ))}
-    </tbody>
-  </table>
+      ))
+    ))}
+  </tbody>
+</table>
 </div>
 
-              </div>
-              <div className="flex-1 mt-2">
-            <h2 className="font-semibold mb-2 mr-4">Total Collection:</h2>
-            <p className="border border-gray-300 rounded p-2">{remainingBalance}</p>
-          </div>
-              <button
-                onClick={downloadPDF}
-                className="bg-blue-500 mt-8 text-white px-4 py-2 rounded"
-              >
-                Download PDF
-              </button>
-
-              
             </div>
-          )}
+            <div className="flex-1 mt-2">
+          <h2 className="font-semibold mb-2 mr-4">Total Collection:</h2>
+          <p className="border border-gray-300 rounded p-2">{remainingBalance}</p>
         </div>
+        </div>
+
+            <button
+              onClick={downloadPDF}
+              className="bg-blue-500 mt-8 text-white px-4 py-2 rounded"
+            >
+              Download PDF
+            </button>
+
+            
+          </div>
+          </>
+        )}
       </div>
     </div>
   );
